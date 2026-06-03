@@ -5,4 +5,3 @@ alembic
 pydantic
 python-dotenv
 aiosqlite
-asyncpg

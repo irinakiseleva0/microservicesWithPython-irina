@@ -1,15 +1,40 @@
-# Interface layer — HTTP endpoints.
-#
-# Define a router with prefix="/v1/games" and implement these endpoints:
-# - POST   /v1/games/          -> create a game (201)
-# - GET    /v1/games/          -> list games (limit/offset pagination)
-# - GET    /v1/games/search    -> search games by title (?q=...)
-# - GET    /v1/games/{game_id} -> get one game by ID (404 if not found)
-#
-# IMPORTANT: declare /search BEFORE /{game_id} in your router.
-# If /{game_id} comes first, FastAPI will try to match "search" as an ID
-# and return a 422 Unprocessable Entity error.
-#
-# Module 5 — CQRS: also add this endpoint (declare it before /{game_id}):
-# - GET /v1/games/{game_id}/summary -> read from Redis cache (404 if not cached)
-#   from app.infrastructure.cache import get_game_summary
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.schemas import GameCreate, GameList, GameOut
+from app.service import add_game, fetch_all_games, fetch_game, find_games
+
+router = APIRouter(prefix="/v1/games", tags=["games"])
+
+
+@router.post("/", response_model=GameOut, status_code=status.HTTP_201_CREATED)
+def create_game(data: GameCreate, db: Session = Depends(get_db)) -> GameOut:
+    return add_game(db, data)
+
+
+@router.get("/", response_model=GameList)
+def list_games(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> GameList:
+    return fetch_all_games(db, limit, offset)
+
+
+@router.get("/search", response_model=GameList)
+def search_games(
+    q: str = Query(min_length=1),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> GameList:
+    return find_games(db, q, limit, offset)
+
+
+@router.get("/{game_id}", response_model=GameOut)
+def get_game(game_id: str, db: Session = Depends(get_db)) -> GameOut:
+    try:
+        return fetch_game(db, game_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
