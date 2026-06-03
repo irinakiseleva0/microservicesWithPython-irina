@@ -25,39 +25,40 @@ app = FastAPI(title="activity-service")
 # ---------------------------------------------------------------------------
 
 async def validate_user(user_id: str) -> None:
-    """
-    Verify that the user exists in user-service before logging an activity.
+    url = f"{settings.user_service_url}/v1/users/{user_id}"
 
-    Call: GET {settings.user_service_url}/v1/users/{user_id}
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(url)
 
-    Behaviour:
-    - 200  → user exists, return normally (None)
-    - 404  → raise HTTPException(status_code=404, detail="User not found")
-    - Network error (httpx.RequestError) → retry the call once, then raise
-             HTTPException(status_code=503, detail="user-service unavailable")
-    - Any other non-2xx status → raise HTTPException(status_code=503, ...)
+            if response.status_code == 200:
+                return
 
-    Use `async with httpx.AsyncClient(timeout=5.0) as client:` for HTTP calls.
-    This call is CRITICAL — the request must not proceed if validation fails.
-    """
-    raise NotImplementedError
+            if response.status_code == 404:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            raise HTTPException(status_code=503, detail="user-service unavailable")
+
+        except httpx.RequestError:
+            if attempt == 1:
+                raise HTTPException(status_code=503, detail="user-service unavailable")
 
 
 async def fetch_game(game_id: str) -> dict | None:
-    """
-    Fetch game data from game-service to enrich the activity response.
+    url = f"{settings.game_service_url}/v1/games/{game_id}"
 
-    Call: GET {settings.game_service_url}/v1/games/{game_id}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(url)
 
-    Behaviour:
-    - 200  → return the response JSON as a dict
-    - Any non-2xx status OR network error → return None (do NOT raise)
+        if response.status_code == 200:
+            return response.json()
 
-    This call is OPTIONAL — the activity is saved regardless of the result.
-    Graceful degradation is the goal: the response will include "game": null
-    when game-service is unreachable.
-    """
-    raise NotImplementedError
+        return None
+
+    except httpx.RequestError:
+        return None
 
 
 # ---------------------------------------------------------------------------
