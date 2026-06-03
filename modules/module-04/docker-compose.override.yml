@@ -7,3 +7,11 @@
 #
 # No service containers in this module.
 version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: microservices-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
