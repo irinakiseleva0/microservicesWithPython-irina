@@ -1,4 +1,3 @@
-from app.infrastructure.rabbitmq_publisher import publish_activity_event
 # Fully implemented — do not modify this file.
 #
 # Your job in Module 4 is to CALL publish_activity_event() from
