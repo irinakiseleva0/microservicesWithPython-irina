@@ -19,6 +19,8 @@ The game-service now has two models for the same data: SQLite for writes, Redis 
 Think about what kind of queries each model is optimised for, and what would happen if you tried to use the write model for high-traffic read operations.
 
 > *Your answer:*
+We maintain two representations because the system has two different needs. SQLite is better as the source of truth: it stores the full game data and is safer for writes. Redis is better for fast reads, especially for small summaries that could be requested very often.If every high-traffic read used SQLite, the write model could become overloaded and slower. The Redis summary is simpler and faster because it only contains the data needed for display, not the full authoritative record.
+
 
 ---
 
@@ -31,6 +33,8 @@ The logging-service checks GDPR consent before recording any activity. If a user
 From a system design perspective: where is the right place to enforce this rule — in the logging-service, in the activity-service, or at the gateway? Why?
 
 > *Your answer:*
+The consent check forces me to accept that the logs are intentionally incomplete. If the user did not give consent, the system must not store their activity, even if that means losing useful analytics or debugging information. I think the right place to enforce this rule is the logging-service. The gateway should only route requests, and the activity-service should only publish activity events.The logging-service owns the decision about what it is legally allowed to store, so it should check consent before writing logs.
+
 
 ---
 
@@ -43,6 +47,7 @@ With CQRS, your write model and read model can drift out of sync — a game is u
 Is there a class of applications where eventual consistency is never acceptable? What are they?
 
 > *Your answer:*
+This inconsistency matters if the user sees wrong important information, for example if a game title or platform was changed but the summary still shows the old version. It could confuse the user because different endpoints show different data. It is acceptable when the data is not critical, like a cached game summary or a cover image that updates a few seconds later. In that case, faster reads are worth the small delay. Eventual consistency is not acceptable for systems where wrong or stale data can cause real damage, for example banking, payments, medical records, or legal/identity systems. In those cases, the user must see accurate data immediately.
 
 ---
 
