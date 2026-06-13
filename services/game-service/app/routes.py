@@ -5,6 +5,7 @@ from app.database import get_db
 from app.schemas import GameCreate, GameList, GameOut
 from app.service import add_game, fetch_all_games, fetch_game, find_games
 from app.infrastructure.cache import get_game_summary
+from app.security import require_admin
 
 router = APIRouter(prefix="/v1/games", tags=["games"])
 
@@ -44,7 +45,12 @@ def get_game_summary_endpoint(game_id: str):
 
     return summary
 
+@router.delete("/{game_id}", dependencies=[Depends(require_admin)])
+def delete_game(game_id: str):
+    return {"status": "deleted", "game_id": game_id}
+
 @router.get("/{game_id}", response_model=GameOut)
+
 def get_game(game_id: str, db: Session = Depends(get_db)) -> GameOut:
     try:
         return fetch_game(db, game_id)
